@@ -32,6 +32,8 @@ intents = discord.Intents.default()
 intents.members = True
 client = discord.Client(intents=intents) #define client
 
+###================================= HELPERS ========================================###
+
 def shuffle(array):
     tmp_array = list(array)
     for i in range(len(array)):
@@ -48,14 +50,9 @@ def convert_ids_to_nicks(team):
             nicks.append(name)
     return nicks
 
-@client.event
-async def on_ready():
-    global GUILD, CHANNEL
-    GUILD = client.get_guild(int(SERVER_ID))
-    CHANNEL = client.get_channel(int(CHANNEL_ID))
-    await CHANNEL.send('What is my purpose?')
+def you_are_dummy_text(message, name):
+    return message.channel.send('%s you\'re not a captain you idiot.' % name)
 
-# get members list for voice channel INHOUSE
 async def members_list(request):
     channel = client.get_channel(877295337012879392)
     curMembers = []
@@ -65,18 +62,93 @@ async def members_list(request):
         'members_list': curMembers,})
     return inhouseMembers
 
-def you_are_dummy_text(message, name):
-    return message.channel.send('%s you\'re not a captain you idiot.' % name)
+###================================= COMMANDS ========================================###
 
-# randomly generate a set of roles and ( assign them to group in chronological order )
-def league_roles():
-    possible_roles = ['top', 'jungle', 'mid', 'bot', 'support']
-    randomize_roles = []
-    for i in range(len(possible_roles)):
-        currRole = random.choice(possible_roles)
-        randomize_roles.append(currRole)
-        possible_roles.remove(currRole)
-    return randomize_roles
+async def commands_command(message):
+    """Returns a list of commands to the user."""
+    response = 'Type "!cat" for captains, "members!" for members and "roles!" to assign roles.'
+    await message.channel.send(response)
+
+async def captain_command(message):
+    """Assigns the caller as a captain."""
+    global CAPTAINS
+    if message.author.id in CAPTAINS:
+        await message.channel.send('You\'re already a captain ya dunce')
+    else:
+        CAPTAINS[message.author.id] = []
+        await message.channel.send('%s you have created a team.' % message.author.nick)
+
+async def removecaptain_command(message):
+    """Removes the caller as a captain."""
+    global CAPTAINS
+    if message.author.id in CAPTAINS:
+        del CAPTAINS[message.author.id]
+        await message.channel.send('%s your team has been disbanded.' % message.author.nick)
+    else:
+        await message.channel.send('%s you have created a team.' % message.author.nick)
+
+async def pick_command(message):
+    """Calling captain adds a user to their team."""
+    global CAPTAINS, GUILD, DISCORD_ID_PATTERN
+    if message.author.id in CAPTAINS:
+        args = message.content.split()
+        token = args[1]
+        username = args[1]
+        discord_id = re.match(DISCORD_ID_PATTERN, args[1])
+        if discord_id:
+            token = int(discord_id.group(1))
+            member = GUILD.get_member(token)
+            username = member.nick
+        CAPTAINS[message.author.id].append(token)
+        await message.channel.send('%s has added %s to their team.' % (message.author.nick, username))
+    else:   
+        await you_are_dummy_text(message, message.author.nick)
+
+async def team_command(message):
+    """Displays the calling captain team roster."""
+    global CAPTAINS
+    if message.author.id in CAPTAINS:
+        await message.channel.send('%s your team consists of %s.' % (message.author.nick, str(convert_ids_to_nicks(CAPTAINS[message.author.id]))))
+    else:
+        await you_are_dummy_text(message, message.author.nick)
+
+async def reset_command(message):
+    """Resets all the team state of the bot."""
+    global CAPTAINS
+    CAPTAINS = []
+    await message.channel.send('All teams and captains have been reset.')
+
+async def assignroles_command(message):
+    """Assigns the calling captain's team roles."""
+    global ROLES, CAPTAINS
+    if message.author.id in CAPTAINS:
+        role_order = shuffle(ROLES)
+        output = zip(convert_ids_to_nicks(CAPTAINS[message.author.id]), role_order)
+        response = ""
+        for name, role in output:
+            response += "%s: %s\n" % (name, role)
+        response = response[:-1]
+        await message.channel.send(response)
+    else:
+        await message.channel.send('%s you have created a team.' % message.author.nick)
+
+async def randomcaptains_command(message):
+    """Pick two random people from a specific voice channel to be captains."""
+    everyone = members_list()
+    captain1 = random.choice(everyone)
+    everyone.remove(captain1)
+    captain2 = random.choice(everyone)
+    response = print('Our esteemed captains for this round are:', captain1, 'and', captain2)
+    await message.channel.send(response)
+
+###================================= CALLBACKS ========================================###
+
+@client.event
+async def on_ready():
+    global GUILD, CHANNEL
+    GUILD = client.get_guild(int(SERVER_ID))
+    CHANNEL = client.get_channel(int(CHANNEL_ID))
+    await CHANNEL.send('What is my purpose?')
 
 # randomly select captains and roles
 @client.event
@@ -88,70 +160,24 @@ async def on_message(message):
     if (CHANNEL.id != message.channel.id):
         return
     if message.content == '!commands':
-        response = 'Type "!cat" for captains, "members!" for members and "roles!" to assign roles.'
-        await message.channel.send(response)
+        await commands_command(message)
     if message.content.strip().lower() == 'you draft teams':
         await message.channel.send("Oh my god...")
     if message.content == '!captain':
-        if message.author.id in CAPTAINS:
-            await message.channel.send('You\'re already a captain ya dunce')
-        else:
-            CAPTAINS[message.author.id] = []
-            await message.channel.send('%s you have created a team.' % message.author.nick)
+        await captain_command(message)
     if message.content == '!removecaptain':
-        if message.author.id in CAPTAINS:
-            del CAPTAINS[message.author.id]
-            await message.channel.send('%s your team has been disbanded.' % message.author.nick)
-        else:
-            await message.channel.send('%s you have created a team.' % message.author.nick)
+        await removecaptain_command(message)
     if message.content.startswith('!pick'):
-        if message.author.id in CAPTAINS:
-            args = message.content.split()
-            token = args[1]
-            username = args[1]
-            discord_id = re.match(DISCORD_ID_PATTERN, args[1])
-            if discord_id:
-                token = int(discord_id.group(1))
-                member = GUILD.get_member(token)
-                username = member.nick
-            CAPTAINS[message.author.id].append(token)
-            await message.channel.send('%s has added %s to their team.' % (message.author.nick, username))
-        else:   
-            await you_are_dummy_text(message, message.author.nick)
+        await pick_command(message)
     if message.content.startswith('!team'):
-        if message.author.id in CAPTAINS:
-            await message.channel.send('%s your team consists of %s.' % (message.author.nick, str(convert_ids_to_nicks(CAPTAINS[message.author.id]))))
-        else:
-            await you_are_dummy_text(message, message.author.nick)
+        await team_command(message)
     if message.content in ('!rebase', '!reset'):
-        CAPTAINS = []
-        await message.channel.send('All teams and captains have been reset.')
+        await reset_command(message)
     if message.content == '!assignroles':
-        if message.author.id in CAPTAINS:
-            role_order = shuffle(ROLES)
-            output = zip(convert_ids_to_nicks(CAPTAINS[message.author.id]), role_order)
-            response = ""
-            for name, role in output:
-                response += "%s: %s\n" % (name, role)
-            response = response[:-1]
-            await message.channel.send(response)
-        else:
-            await message.channel.send('%s you have created a team.' % message.author.nick)
-    if message.content == '!members':
-        inhouse_members = members_list()
-        response = inhouse_members
-        await message.channel.send(response)
+        await assignroles_command(message)
     if message.content == '!randomcaptains':
-        everyone = members_list()
-        captain1 = random.choice(everyone)
-        everyone.remove(captain1)
-        captain2 = random.choice(everyone)
-        response = print('Our esteemed captains for this round are:', captain1, 'and', captain2)
-        await message.channel.send(response)
-    if message.content == '!team':
-        teamlist = []
-        response = 'Enter the names of the people in your team, one name per message.'
+        await randomcaptains_command(message)
 
 
-
-client.run(TOKEN)
+if __name__ == '__main__':
+    client.run(TOKEN)
