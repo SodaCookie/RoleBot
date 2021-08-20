@@ -5,6 +5,7 @@ import re
 import math
 import discord
 import random
+from collections import namedtuple
 from discord import channel
 from discord.utils import CachedSlotProperty
 
@@ -24,6 +25,7 @@ GUILD = None
 CHANNEL = None
 CAPTAINS = dict()
 ROLES = ["Top", "Jungle", "Mid", "Support", "Bot"]
+COMMANDS = {}
 
 DISCORD_ID_PATTERN = r'<@!([0-9]*)>'
 
@@ -31,6 +33,8 @@ DISCORD_ID_PATTERN = r'<@!([0-9]*)>'
 intents = discord.Intents.default()
 intents.members = True
 client = discord.Client(intents=intents) #define client
+
+CommandsTuple = namedtuple('CommandsTuple', 'commands, function')
 
 ###================================= HELPERS ========================================###
 
@@ -66,7 +70,19 @@ async def members_list(request):
 
 async def commands_command(message):
     """Returns a list of commands to the user."""
-    response = 'Type "!cat" for captains, "members!" for members and "roles!" to assign roles.'
+    global COMMANDS
+    command_tuples = {}
+    for key, value in COMMANDS.items():
+        if id(value) not in command_tuples:
+            command_tuples[id(value)] = CommandsTuple([], value)
+        command_tuples[id(value)].commands.append(key)
+    lines = []
+    for cmd_tuple in command_tuples.values():
+        commands = str.ljust(', '.join(cmd_tuple.commands), 30)
+        doc = cmd_tuple.function.__doc__
+        lines.append("%s- %s" % (commands, doc))
+    lines.sort()
+    response = '```\n' + '\n'.join(lines) + '\n```'
     await message.channel.send(response)
 
 async def captain_command(message):
@@ -153,31 +169,32 @@ async def on_ready():
 # randomly select captains and roles
 @client.event
 async def on_message(message):
-    global CAPTAINS, GUILD
+    global COMMANDS
     if message.author == client.user: #checks to
         return
     # Only work on channel specficied by CHANNEL_ID
     if (CHANNEL.id != message.channel.id):
         return
-    if message.content == '!commands':
-        await commands_command(message)
+
+    # Easter egg
     if message.content.strip().lower() == 'you draft teams':
         await message.channel.send("Oh my god...")
-    if message.content == '!captain':
-        await captain_command(message)
-    if message.content == '!removecaptain':
-        await removecaptain_command(message)
-    if message.content.startswith('!pick'):
-        await pick_command(message)
-    if message.content.startswith('!team'):
-        await team_command(message)
-    if message.content in ('!rebase', '!reset'):
-        await reset_command(message)
-    if message.content == '!assignroles':
-        await assignroles_command(message)
-    if message.content == '!randomcaptains':
-        await randomcaptains_command(message)
+    args = message.content.strip().split()
+    command = COMMANDS.get(args[0])
+    if command is not None:
+        await command(message)
 
 
 if __name__ == '__main__':
+    COMMANDS = {
+        '!commands': commands_command,
+        '!captain': captain_command,
+        '!removecaptain': removecaptain_command,
+        '!pick': pick_command,
+        '!team': team_command,
+        '!reset': reset_command,
+        '!rebase': reset_command,
+        '!assignroles': assignroles_command,
+        '!randomcaptains': randomcaptains_command,
+    }
     client.run(TOKEN)
