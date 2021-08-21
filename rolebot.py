@@ -154,15 +154,6 @@ async def save_player_constraints():
         log.info("Saved player constraints.")
         json.dump(PLAYER_CONSTRAINTS, file)
 
-async def members_list(message):
-    channel = client.get_channel(877295337012879392)
-    curMembers = []
-    for member in channel.members:
-        curMembers.append(member)
-    inhouseMembers = render(request, "discordTool/discordTool.html", {
-        'members_list': curMembers,})
-    return inhouseMembers
-
 ###================================= COMMANDS ========================================###
 
 async def commands_command(message):
@@ -404,12 +395,16 @@ async def role_command(message):
 
 async def randomcaptains_command(message):
     """Pick two random people from a specific voice channel to be captains."""
-    everyone = members_list()
-    captain1 = random.choice(everyone)
-    everyone.remove(captain1)
-    captain2 = random.choice(everyone)
-    response = print('Our esteemed captains for this round are:', captain1, 'and', captain2)
-    send_message(message.channel, response)
+    if not message.author.voice or not message.author.voice.channel:
+        send_message("You need to be part of a voice channel to use this command.")
+        return
+    channel = client.get_channel(message.author.voice.channel.id)
+
+    if len(channel.members) < 2:
+        send_message("This channel needs at least 2 people in it to pick captains.")
+        return
+    captains = random.sample(channel.members, 2)
+    send_message(message.channel, "Team 1's Captain: %s\nTeam 2's Captain: %s" % (get_member_name(captains[0]), get_member_name(captains[1])))
 
 ###================================= CALLBACKS ========================================###
 
