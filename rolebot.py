@@ -86,25 +86,30 @@ def shuffle(array):
         tmp_array[i], tmp_array[j] = tmp_array[j], tmp_array[i]
     return tmp_array
 
-def get_team_role_permutations(team, selected=set()):
-    """Returns the set of valid roles the set of constraints. Returns None if not possible"""
+def get_team_role_permutations(team, selected=set(), overrides=[]):
+    """Returns the set of valid roles the set of constraints. 
+    
+    Returns None if not possible. Players can be overridden to not take into
+    account their constraint preferences."""
+    constraints = set(PLAYER_CONSTRAINTS.get(team[0], ROLES)) if team[0] not in overrides else set(ROLES)
+    selected = set(selected)
+    if constraints == selected:
+        return None
     if len(team) == 1:
         return [[c] for c in PLAYER_CONSTRAINTS.get(team[0], ROLES) if c not in selected]
     if len(team) == 0:
         return []
-    selected = set(selected)
     permutations = []
-    constraints = set(PLAYER_CONSTRAINTS.get(team[0], ROLES))
-    if (set(ROLES) - constraints) == selected:
-        return None
-    for role in PLAYER_CONSTRAINTS.get(team[0], ROLES):
+    for role in constraints:
         if role in selected:
             continue
         sub_permutations = get_team_role_permutations(team[1:], selected | set([role]))
         if sub_permutations is None:
-            return None
+            continue
         for p in sub_permutations:
             permutations.append([role] + p)
+    if not permutations:
+        return None
     return permutations
 
 def convert_ids_to_nicks(team):
@@ -118,6 +123,12 @@ def convert_ids_to_nicks(team):
 
 def convert_id_to_nick(id):
     return get_member_name(GUILD.get_member(id))
+
+def maybe_convert_id_to_nick(token):
+    """Converts a token into a the nick name unless its a string"""
+    if isinstance(token, int):
+        return convert_id_to_nick(token)
+    return token
 
 def you_are_dummy_text(message, name):
     if is_member_shady(message.author):
@@ -242,7 +253,8 @@ async def team_command(message):
     """Displays the calling captain team roster."""
     global CAPTAINS
     if message.author.id in CAPTAINS:
-        send_message(message.channel, '%s your team consists of %s.' % (get_member_name(message.author), str(convert_ids_to_nicks(CAPTAINS[message.author.id]))))
+        send_message(message.channel, '%s your team consists of %s.' % \
+            (get_member_name(message.author), str([maybe_convert_id_to_nick(token) for token in CAPTAINS[message.author.id]])))
     else:
         await you_are_dummy_text(message, get_member_name(message.author))
 
@@ -256,19 +268,46 @@ async def assignroles_command(message):
     """Assigns the calling captain's team roles."""
     global ROLES, CAPTAINS
     if message.author.id in CAPTAINS:
-        permutations = get_team_role_permutations(CAPTAINS[message.author.id])
-        role_order = random.sample(permutations, 1)[0]
+        team = CAPTAINS[message.author.id]
+        permutations = get_team_role_permutations(team)
+        constraints = {player: PLAYER_CONSTRAINTS.get(team[0], ROLES) for player in team}
+        if permutations is None:
+            # We stumble into an impossible configuration
+            # Slowly relax constraints based on number of constraints
+            relax_order = {}
+            relaxed_players = []
+            for player, c in constraints.items():
+                if len(c) not in relax_order:
+                    relax_order[len(c)] = []
+                relax_order[len(c)].append(player)
+            for relax_size in reversed(range(1, 5)):
+                if relax_size not in relax_order:
+                    continue
+                if not relax_order[relax_size]:
+                    continue
+                player = random.choice(relax_order[relax_size])
+                relaxed_players.append(player)
+                relax_order[relax_size].remove(player)
+                print(relaxed_players)
+                permutations = get_team_role_permutations(team, overrides=relaxed_players)
+                if permutations is not None:
+                    break
+            
         if permutations is None:
             send_message(message.channel, "No permutation is possible")
             return
-        output = zip(convert_ids_to_nicks(CAPTAINS[message.author.id]), role_order)
+        role_order = random.sample(permutations, 1)[0]
+        output = zip(team, role_order)
         response = ""
-        for name, role in output:
-            response += "%s: %s\n" % (name, role)
+        for token, role in output:
+            if role not in constraints[token]:
+                response += "%s: %s <autofilled>\n" % (maybe_convert_id_to_nick(token), role)
+            else:
+                response += "%s: %s\n" % (maybe_convert_id_to_nick(token), role)
         response = response[:-1]
         send_message(message.channel, response)
     else:
-        send_message(message.channel, '%s you have created a team.' % get_member_name(message.author))
+        await you_are_dummy_text(message, get_member_name(message.author))
 
 async def role_command(message):
     """Define the roles that you would like to play. You can add a -d -p -a -r -o flag to delete, print, add, remove or override your roles."""
