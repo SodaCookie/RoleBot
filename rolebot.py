@@ -192,7 +192,7 @@ async def removecaptain_command(message):
         del CAPTAINS[message.author.id]
         send_message(message.channel, '%s your team has been disbanded.' % get_member_name(message.author))
     else:
-        await you_are_dummy_text(message, get_member_name(message.author))
+        you_are_dummy_text(message, get_member_name(message.author))
 
 async def pick_command(message):
     """Calling captain adds a user to their team."""
@@ -203,7 +203,7 @@ async def pick_command(message):
         send_message(message.channel, "Please include a player to include to your pick command.")
         return
     if message.author.id not in CAPTAINS:
-        await you_are_dummy_text(message, get_member_name(message.author))
+        you_are_dummy_text(message, get_member_name(message.author))
         return
     token = args[1]
     username = args[1]
@@ -247,7 +247,7 @@ async def team_command(message):
         send_message(message.channel, '%s your team consists of %s.' % \
             (get_member_name(message.author), str([maybe_convert_id_to_nick(token) for token in CAPTAINS[message.author.id]])))
     else:
-        await you_are_dummy_text(message, get_member_name(message.author))
+        you_are_dummy_text(message, get_member_name(message.author))
 
 async def reset_command(message):
     """Resets all the team state of the bot."""
@@ -260,7 +260,10 @@ async def assignroles_command(message):
     global ROLES, CAPTAINS
     if message.author.id in CAPTAINS:
         team = CAPTAINS[message.author.id]
-        permutations = get_team_role_permutations(team)
+        if "-f" in message.context:
+            permutations = get_team_role_permutations(team, overrides=team)
+        else:
+            permutations = get_team_role_permutations(team)
         constraints = {player: PLAYER_CONSTRAINTS.get(team[0], ROLES) for player in team}
         if permutations is None:
             # We stumble into an impossible configuration
@@ -298,7 +301,7 @@ async def assignroles_command(message):
         response = response[:-1]
         send_message(message.channel, response)
     else:
-        await you_are_dummy_text(message, get_member_name(message.author))
+        you_are_dummy_text(message, get_member_name(message.author))
 
 async def role_command(message):
     """Define the roles that you would like to play. You can add a -d -p -a -r -o flag to delete, print, add, remove or override your roles."""
