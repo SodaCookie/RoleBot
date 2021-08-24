@@ -25,6 +25,9 @@ COMMANDS = {
     '!reset': command.reset.reset,
     '!rebase': command.reset.reset,
     '!assignroles': command.assignroles.assignroles,
+    '!unassigned': command.unassigned.unassigned,
+    '!left': command.unassigned.unassigned,
+    '!remaining': command.unassigned.unassigned,
     '!role': command.role.role,
     '!randomcaptains': command.randomcaptains.randomcaptains,
 }

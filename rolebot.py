@@ -42,6 +42,9 @@ async def on_message(message):
     global CONTEXT
     if message.author == client.user: #checks to
         return
+    if CONTEXT.channel is None:
+        logging.warning("Command fired when channel is None:\n%s" % message.content)
+        return
     # Only work on channel specficied by CHANNEL_ID
     if (CONTEXT.channel.id != message.channel.id):
         return
