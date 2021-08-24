@@ -16,6 +16,7 @@ class RolebotContext(object):
         self.channel = client.get_channel(int(kwargs["channel_id"]))
         self.guard_rails = strtobool(kwargs["guard_rails"])
         self.player_constraints_file = kwargs["player_constraints_file"]
+        self.active_inhouse_calls = {}
 
         if not os.path.exists(self.player_constraints_file):
             with open(kwargs["player_constraints_file"], 'w') as file:

@@ -9,6 +9,7 @@ import constants
 import helpers
 from rolebot_context import RolebotContext
 from dotenv import load_dotenv
+from command.matchmaking import add_matchmade_player, remove_matchmade_player
 
 # print message when bot connects to disc client
 intents = discord.Intents.default()
@@ -36,17 +37,40 @@ async def on_ready():
     else:
         await CONTEXT.channel.send('What is my purpose?')
 
-# randomly select captains and roles
+@client.event
+async def on_reaction_add(reaction, user):
+    if user == client.user: #checks to make sure it's not the bot
+        return
+    # Only work on channel specficied by CHANNEL_ID
+    if (CONTEXT.channel.id != reaction.message.channel.id):
+        return
+    if CONTEXT.channel is None:
+        logging.warning("Command fired when channel is None.")
+        return
+    await add_matchmade_player(reaction, user.id, CONTEXT)
+
+@client.event
+async def on_reaction_remove(reaction, user):
+    if user == client.user: #checks to make sure it's not the bot
+        return
+    # Only work on channel specficied by CHANNEL_ID
+    if (CONTEXT.channel.id != reaction.message.channel.id):
+        return
+    if CONTEXT.channel is None:
+        logging.warning("Command fired when channel is None.")
+        return
+    await remove_matchmade_player(reaction, user.id, CONTEXT)
+
 @client.event
 async def on_message(message):
     global CONTEXT
     if message.author == client.user: #checks to
         return
-    if CONTEXT.channel is None:
-        logging.warning("Command fired when channel is None:\n%s" % message.content)
-        return
     # Only work on channel specficied by CHANNEL_ID
     if (CONTEXT.channel.id != message.channel.id):
+        return
+    if CONTEXT.channel is None:
+        logging.warning("Command fired when channel is None:\n%s" % message.content)
         return
 
     # Easter egg
