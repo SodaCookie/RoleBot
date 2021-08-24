@@ -66,7 +66,6 @@ async def assignroles(message, context):
     role_order = random.sample(permutations, 1)[0]
     output = zip(team, role_order)
     response = ""
-    print(constraints)
     for token, role in output:
         if role not in constraints[token]:
             response += "%s: %s <autofilled>\n" % (helpers.maybe_convert_id_to_nick(token, context), role)

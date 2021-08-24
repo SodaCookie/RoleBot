@@ -21,6 +21,7 @@ def admin_endpoint(func):
 def captain_endpoint(func):
     """Requires being a captain to call"""
     def captain_wrapper(message, context):
+        # TODO: Finish this
         return func(message, context)
     captain_wrapper.__doc__ = func.__doc__
     return captain_wrapper

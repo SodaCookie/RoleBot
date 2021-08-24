@@ -93,6 +93,6 @@ async def role(message, context):
     
     asyncio.ensure_future(helpers.save_player_constraints(context))
     if helpers.is_member_shady(message.author, context) and len(roles) < 5:
-        helpers.send_message(message.channel, 'Looks like you\'re not playing all the roles. Are you feeling a little self conscious? Here are you roles: %s' % (helpers.convert_id_to_nick(message.author.id, context), str(context.player_constraints[message.author.id])))
+        helpers.send_message(message.channel, 'Looks like you\'re not playing all the roles. Are you feeling a little self conscious? Here are you roles: %s' % (str(context.player_constraints[message.author.id])))
     else:
         helpers.send_message(message.channel, '%s your roles have been updated to: %s' % (helpers.convert_id_to_nick(message.author.id, context), str(context.player_constraints[message.author.id])))
