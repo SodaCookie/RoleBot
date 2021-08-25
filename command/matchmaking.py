@@ -8,7 +8,7 @@ import helpers
 from collections import namedtuple
 
 
-InhouseArgs = namedtuple("InhouseArgs", "message,promise,embed,players,num_players,group_name")
+InhouseArgs = namedtuple("InhouseArgs", "message,owner,promise,embed,players,num_players,group_name")
 
 INHOUSE_DESCRIPTION = "Emote on this message if you would like to play an inhouse.\n Available players:\n\t- "
 INHOUSE_TIMED_OUT = "This in-house has timed out."
@@ -45,7 +45,7 @@ async def wait_for_inhouse_timeout(wait_time, id, context):
     else:
         logging.warning("Timed out inhouse %d no longer exists." % id)
 
-async def _init_matchmaking(message, context, group_name, num_players, wait_time):
+async def _init_matchmaking(message, context, group_name, num_players, wait_time, owner):
     embed = discord.Embed()
     embed.title = "Vote"
     embed.description = INHOUSE_DESCRIPTION + helpers.convert_id_to_nick(message.author.id, context)
@@ -62,16 +62,28 @@ async def _init_matchmaking(message, context, group_name, num_players, wait_time
         embed=embed,
         players=set([message.author.id]),
         num_players=num_players,
-        group_name=group_name
+        group_name=group_name,
+        owner=owner
     )
 
 async def inhouse(message, context):
     """Starts a vote to see how many people are interested in participating in an inhouse."""
+    # TODO: This can be more efficient. Make a key for a lookup table
+    # TODO: implement group close
+    for lobby in context.active_inhouse_calls.values():
+        if lobby.owner == message.author:
+            if helpers.is_member_shady(message.author, context):
+                helpers.send_message("Hey you shitter you already have a lobby open.")
+                return
+            else:
+                helpers.send_message("You already have a lobby open. Please wait for it to timeout or close it (Not implemented)")
+                return
+
     wait_time = constants.DEFAULT_INHOUSE_WAIT_TIME
     raw_args = message.content.split()
     if len(raw_args) > 1 and raw_args[1].isdigit():
         wait_time = int(raw_args[1]) * 60
-    await _init_matchmaking(message, context, "%s's In-House" % helpers.convert_id_to_nick(message.author.id, context), 10, wait_time)
+    await _init_matchmaking(message, context, "%s's In-House" % helpers.convert_id_to_nick(message.author.id, context), 10, wait_time, message.author)
 
 async def gamer_time(message, context):
     """Starts a vote to see how many people are interested in participating in a 5 man."""
@@ -79,4 +91,4 @@ async def gamer_time(message, context):
     raw_args = message.content.split()
     if len(raw_args) > 1 and raw_args[1].isdigit():
         wait_time = int(raw_args[1]) * 60
-    await _init_matchmaking(message, context, "%s's Five-Squad" % helpers.convert_id_to_nick(message.author.id, context), 5, wait_time)
+    await _init_matchmaking(message, context, "%s's Five-Squad" % helpers.convert_id_to_nick(message.author.id, context), 5, wait_time, message.author)
